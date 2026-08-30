@@ -1,0 +1,99 @@
+schema: '2.0'
+stages:
+  load_static_data:
+    cmd: python load_static_data.py
+    deps:
+    - path: data/raw/DataCoSupplyChainDataset.csv
+      hash: md5
+      md5: 354eb3cd362619ef120ca2201337ae92
+      size: 95910149
+    - path: db_connect.py
+      hash: md5
+      md5: c5c6a3ad36aa83e50734054a42001d35
+      size: 1924
+    - path: load_static_data.py
+      hash: md5
+      md5: 08a0b148795880f52d0d63fa2e60e5e1
+      size: 3179
+    outs:
+    - path: data/.load_marker
+      hash: md5
+      md5: b51153fa007d47b9bb9c60ca7e6dd342
+      size: 25
+  build_features:
+    cmd: cd ml && python features.py
+    deps:
+    - path: data/.load_marker
+      hash: md5
+      md5: b51153fa007d47b9bb9c60ca7e6dd342
+      size: 25
+    - path: db_connect.py
+      hash: md5
+      md5: c5c6a3ad36aa83e50734054a42001d35
+      size: 1924
+    - path: ml/features.py
+      hash: md5
+      md5: 9de0be35c29f357ebfb122d9010912a0
+      size: 4563
+    outs:
+    - path: data/processed/features.parquet
+      hash: md5
+      md5: c21b90794324f4ae43b9bd115710cc82
+      size: 9048020
+  train_risk_classifier:
+    cmd: cd ml && python train_risk_classifier.py
+    deps:
+    - path: data/processed/features.parquet
+      hash: md5
+      md5: c21b90794324f4ae43b9bd115710cc82
+      size: 9048020
+    - path: ml/features.py
+      hash: md5
+      md5: 9de0be35c29f357ebfb122d9010912a0
+      size: 4563
+    - path: ml/train_risk_classifier.py
+      hash: md5
+      md5: c5a3c0811143076c6b0ef7a01f06226d
+      size: 3176
+    params:
+      params.yaml:
+        risk_classifier.learning_rate: 0.05
+        risk_classifier.max_depth: 6
+        risk_classifier.n_estimators: 300
+    outs:
+    - path: outputs/confusion_matrix.png
+      hash: md5
+      md5: 722aa79fd452dffde0cbb86dc0bc3ecc
+      size: 24511
+    - path: outputs/risk_metrics.json
+      hash: md5
+      md5: b72d4fbce88b937b90595519e5a71629
+      size: 319
+  train_delay_forecast:
+    cmd: cd ml && python train_delay_forecast.py
+    deps:
+    - path: data/processed/features.parquet
+      hash: md5
+      md5: c21b90794324f4ae43b9bd115710cc82
+      size: 9048020
+    - path: ml/features.py
+      hash: md5
+      md5: 9de0be35c29f357ebfb122d9010912a0
+      size: 4563
+    - path: ml/train_delay_forecast.py
+      hash: md5
+      md5: d38b5e704680c2beec6cf30ad14b8e72
+      size: 3083
+    params:
+      params.yaml:
+        delay_forecaster.cv_folds: 3
+        delay_forecaster.n_iter: 25
+    outs:
+    - path: outputs/delay_feature_importance.png
+      hash: md5
+      md5: cea37c53fc858f41c1ad4908945635b9
+      size: 38400
+    - path: outputs/delay_metrics.json
+      hash: md5
+      md5: c850662c32bb5f6664a2c4305eb6477c
+      size: 94

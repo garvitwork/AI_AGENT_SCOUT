@@ -1,0 +1,50 @@
+stages:
+  load_static_data:
+    cmd: python load_static_data.py
+    deps:
+      - load_static_data.py
+      - data/raw/DataCoSupplyChainDataset.csv
+      - db_connect.py
+    outs:
+      - data/.load_marker:
+          cache: false
+
+  build_features:
+    cmd: cd ml && python features.py
+    deps:
+      - ml/features.py
+      - db_connect.py
+      - data/.load_marker
+    outs:
+      - data/processed/features.parquet
+
+  train_risk_classifier:
+    cmd: cd ml && python train_risk_classifier.py
+    deps:
+      - ml/train_risk_classifier.py
+      - ml/features.py
+      - data/processed/features.parquet
+    params:
+      - risk_classifier.n_estimators
+      - risk_classifier.max_depth
+      - risk_classifier.learning_rate
+    metrics:
+      - outputs/risk_metrics.json:
+          cache: false
+    plots:
+      - outputs/confusion_matrix.png
+
+  train_delay_forecast:
+    cmd: cd ml && python train_delay_forecast.py
+    deps:
+      - ml/train_delay_forecast.py
+      - ml/features.py
+      - data/processed/features.parquet
+    params:
+      - delay_forecaster.cv_folds
+      - delay_forecaster.n_iter
+    metrics:
+      - outputs/delay_metrics.json:
+          cache: false
+    plots:
+      - outputs/delay_feature_importance.png

@@ -1,0 +1,21 @@
+paths:
+  raw_data: data/raw/DataCoSupplyChainDataset.csv
+  features: data/processed/features.parquet
+  risk_metrics: outputs/risk_metrics.json
+  delay_metrics: outputs/delay_metrics.json
+
+risk_classifier:
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+
+delay_forecaster:
+  n_iter: 25
+  cv_folds: 3
+
+dagshub:
+  repo_owner: garvitwork
+  repo_name: AI_AGENT_SCOUT
+  mlflow_tracking: true
