@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SCOUT — Supply Chain Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="grid-overlay" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="wordmark">
+    <span class="blip" id="statusBlip" aria-hidden="true"></span>
+    SCOUT
+  </div>
+  <div class="tagline">SUPPLY&nbsp;CHAIN&nbsp;DISRUPTION&nbsp;RADAR</div>
+  <div class="status" id="statusText">CHECKING LINK…</div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <p class="eyebrow">MANIFEST LOOKUP</p>
+    <h1>Scan a shipment<br>before it's late.</h1>
+    <form id="scanForm" class="ticket-form" autocomplete="off">
+      <label for="shipmentId">SHIPMENT ID</label>
+      <input type="number" id="shipmentId" name="shipmentId" placeholder="e.g. 1" min="1" required />
+      <button type="submit" id="scanBtn">
+        <span>SCAN SHIPMENT</span>
+      </button>
+    </form>
+    <p class="hint" id="formHint"></p>
+  </section>
+
+  <section class="result-zone" id="resultZone" hidden>
+    <article class="ticket" id="ticket">
+
+      <div class="ticket-main">
+        <div class="ticket-row route">
+          <div>
+            <p class="label">ORIGIN</p>
+            <p class="value" id="rOrigin">—</p>
+          </div>
+          <div class="route-line" aria-hidden="true">
+            <svg viewBox="0 0 100 10" preserveAspectRatio="none"><path d="M0,5 L100,5" stroke-dasharray="4 4"/></svg>
+          </div>
+          <div>
+            <p class="label">DESTINATION</p>
+            <p class="value" id="rDestination">—</p>
+          </div>
+        </div>
+
+        <div class="ticket-row meta">
+          <div><p class="label">SHIPMENT</p><p class="value mono" id="rShipmentId">—</p></div>
+          <div><p class="label">SUPPLIER</p><p class="value mono" id="rSupplier">—</p></div>
+          <div><p class="label">MODE</p><p class="value mono" id="rMode">—</p></div>
+        </div>
+      </div>
+
+      <div class="perforation" aria-hidden="true"></div>
+
+      <div class="ticket-stub">
+        <div class="gauge-wrap">
+          <div class="gauge" id="gauge">
+            <div class="gauge-inner">
+              <span id="riskPct">—</span>
+              <small>RISK</small>
+            </div>
+          </div>
+          <p class="gauge-caption" id="riskLabel">AWAITING SCAN</p>
+        </div>
+
+        <div class="stub-details">
+          <p class="label">PREDICTED DELAY</p>
+          <p class="value delay" id="rDelay">—</p>
+
+          <p class="label">TOP FACTORS</p>
+          <ul class="factors" id="rFactors"></ul>
+        </div>
+      </div>
+
+      <div class="recommendation" id="rReco">
+        <p class="label">RECOMMENDATION</p>
+        <p class="reco-text" id="recoText">—</p>
+      </div>
+
+    </article>
+  </section>
+
+  <section class="board-section">
+    <div class="board-header">
+      <p class="eyebrow">DEPARTURE BOARD</p>
+      <h2>Recently Flagged Shipments</h2>
+      <button id="refreshBoard" class="ghost-btn">REFRESH</button>
+    </div>
+
+    <div class="board-wrap">
+      <table class="board" id="board">
+        <thead>
+          <tr>
+            <th>SHIPMENT</th>
+            <th>SUPPLIER</th>
+            <th>ROUTE</th>
+            <th>MODE</th>
+            <th>RISK</th>
+            <th>DELAY</th>
+            <th>SCORED</th>
+          </tr>
+        </thead>
+        <tbody id="boardBody">
+          <tr><td colspan="7" class="board-empty">Loading manifest…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>SCOUT — Agentic supply chain disruption early-warning system. LangGraph · Gemini · MLflow · MySQL.</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

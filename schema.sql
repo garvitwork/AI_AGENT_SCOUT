@@ -1,6 +1,6 @@
 -- SCOUT database schema
-CREATE DATABASE IF NOT EXISTS scout_db;
-USE scout_db;
+-- Tables are created in whatever database the connection targets
+-- (set via SCOUT_DB_NAME in .env — e.g. "defaultdb" on Aiven).
 
 CREATE TABLE IF NOT EXISTS suppliers (
     supplier_id     INT AUTO_INCREMENT PRIMARY KEY,

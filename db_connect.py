@@ -9,6 +9,9 @@ import os
 import pymysql
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- Config (move to .env in production, don't hardcode) ---
 DB_HOST = os.getenv("SCOUT_DB_HOST", "localhost")
@@ -16,18 +19,21 @@ DB_PORT = int(os.getenv("SCOUT_DB_PORT", 3306))
 DB_USER = os.getenv("SCOUT_DB_USER", "root")
 DB_PASSWORD = os.getenv("SCOUT_DB_PASSWORD", "garvit@123")
 DB_NAME = os.getenv("SCOUT_DB_NAME", "scout_db")
+DB_SSL_CA = os.getenv("SCOUT_DB_SSL_CA")  # path to Aiven's ca.pem, if using SSL
 
 
 def get_pymysql_connection():
     """Raw connection — good for simple inserts/queries, cursors."""
+    ssl_args = {"ssl": {"ca": DB_SSL_CA}} if DB_SSL_CA else {}
     return pymysql.connect(
         host=DB_HOST,
         port=DB_PORT,
         user=DB_USER,
-        password=DB_PASSWORD,   # passed as plain kwarg — pymysql doesn't need URL-encoding
+        password=DB_PASSWORD,
         database=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
+        **ssl_args,
     )
 
 
@@ -37,13 +43,13 @@ def get_sqlalchemy_engine():
     The password IS part of a URI string here, so '@' must be percent-encoded
     with quote_plus, otherwise SQLAlchemy misreads the host section.
     """
-    safe_password = quote_plus(DB_PASSWORD)   # "garvit@123" -> "garvit%40123"
+    safe_password = quote_plus(DB_PASSWORD)
     uri = f"mysql+pymysql://{DB_USER}:{safe_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    return create_engine(uri)
+    connect_args = {"ssl": {"ca": DB_SSL_CA}} if DB_SSL_CA else {}
+    return create_engine(uri, connect_args=connect_args)
 
 
 if __name__ == "__main__":
-    # quick connectivity test
     conn = get_pymysql_connection()
     with conn.cursor() as cur:
         cur.execute("SELECT DATABASE(), VERSION();")
