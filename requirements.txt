@@ -12,3 +12,8 @@ langgraph==0.2.39
 langchain-google-genai==2.0.4
 streamlit==1.39.0
 tqdm==4.66.5
+pyarrow==17.0.0
+pyyaml==6.0.2
+dvc==3.55.2
+fastapi==0.115.4
+uvicorn==0.32.0

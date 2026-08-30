@@ -98,3 +98,7 @@ if __name__ == "__main__":
     print(df[cols + ["is_delayed", "delay_days"]].head())
     print(f"\nRows: {len(df)}")
     print(f"Delayed rate: {df['is_delayed'].mean():.3f}")
+
+    os.makedirs("../data/processed", exist_ok=True)
+    df.to_parquet("../data/processed/features.parquet", index=False)
+    print("Saved features to data/processed/features.parquet")

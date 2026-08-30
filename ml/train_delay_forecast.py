@@ -6,6 +6,9 @@ import mlflow
 import mlflow.xgboost
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
+import os
+import yaml
 from xgboost import XGBRegressor
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -35,15 +38,19 @@ def train():
         X, y, test_size=0.2, random_state=42
     )
 
+    with open("../params.yaml") as f:
+        params_yaml = yaml.safe_load(f)
+    df_params = params_yaml["delay_forecaster"]
+
     init_mlflow(EXPERIMENT_NAME)
     with mlflow.start_run(run_name="xgb_delay_forecaster_tuned"):
 
         search = RandomizedSearchCV(
             estimator=XGBRegressor(random_state=42),
             param_distributions=PARAM_GRID,
-            n_iter=25,
+            n_iter=df_params["n_iter"],
             scoring="neg_mean_absolute_error",
-            cv=3,
+            cv=df_params["cv_folds"],
             n_jobs=-1,
             random_state=42,
             verbose=1,
@@ -64,14 +71,18 @@ def train():
         print("Best params:", search.best_params_)
         print("Test metrics:", metrics)
 
+        os.makedirs("../outputs", exist_ok=True)
+        with open("../outputs/delay_metrics.json", "w") as f:
+            json.dump(metrics, f, indent=2)
+
         # --- feature importance artifact ---
         importances = pd.Series(best_model.feature_importances_, index=feature_cols).sort_values()
         fig, ax = plt.subplots(figsize=(6, 5))
         importances.plot(kind="barh", ax=ax)
         plt.title("Delay Forecaster — Feature Importance")
         plt.tight_layout()
-        fig.savefig("delay_feature_importance.png")
-        mlflow.log_artifact("delay_feature_importance.png")
+        fig.savefig("../outputs/delay_feature_importance.png")
+        mlflow.log_artifact("../outputs/delay_feature_importance.png")
         plt.close(fig)
 
         mlflow.xgboost.log_model(

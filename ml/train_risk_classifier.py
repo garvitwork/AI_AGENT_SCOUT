@@ -5,7 +5,9 @@ everything to MLflow on DagsHub: params, metrics, model artifact, registry.
 import mlflow
 import mlflow.xgboost
 import matplotlib.pyplot as plt
-import seaborn as sns
+import json
+import os
+import yaml
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -27,12 +29,16 @@ def train():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
+    with open("../params.yaml") as f:
+        params_yaml = yaml.safe_load(f)
+    rc = params_yaml["risk_classifier"]
+
     params = {
-        "n_estimators": 300,
-        "max_depth": 6,
-        "learning_rate": 0.05,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
+        "n_estimators": rc["n_estimators"],
+        "max_depth": rc["max_depth"],
+        "learning_rate": rc["learning_rate"],
+        "subsample": rc["subsample"],
+        "colsample_bytree": rc["colsample_bytree"],
         "eval_metric": "logloss",
         "random_state": 42,
     }
@@ -68,13 +74,17 @@ def train():
         mlflow.log_metrics(metrics)
         print(metrics)
 
+        os.makedirs("../outputs", exist_ok=True)
+        with open("../outputs/risk_metrics.json", "w") as f:
+            json.dump(metrics, f, indent=2)
+
         # --- confusion matrix: log as a visual artifact too ---
         fig, ax = plt.subplots(figsize=(5, 4))
         ConfusionMatrixDisplay(cm, display_labels=["on_time", "delayed"]).plot(ax=ax, cmap="Blues")
         plt.title("Risk Classifier — Confusion Matrix")
         plt.tight_layout()
-        fig.savefig("confusion_matrix.png")
-        mlflow.log_artifact("confusion_matrix.png")
+        fig.savefig("../outputs/confusion_matrix.png")
+        mlflow.log_artifact("../outputs/confusion_matrix.png")
         plt.close(fig)
 
         mlflow.xgboost.log_model(

@@ -8,8 +8,6 @@ Download DataCoSupplyChainDataset.csv manually (Kaggle needs auth) and place it 
 
 Usage: python data/scripts/load_static_data.py
 """
-
-
 import pandas as pd
 import os
 from db_connect import get_sqlalchemy_engine
@@ -54,6 +52,7 @@ def load_and_transform():
     engine = get_sqlalchemy_engine()
     suppliers.to_sql("suppliers", engine, if_exists="append", index=False)
 
+    # read back auto-generated supplier_id, map on (region, category)
     db_suppliers = pd.read_sql("SELECT supplier_id, region, category FROM suppliers", engine)
     df = df.merge(
         db_suppliers,
@@ -65,6 +64,12 @@ def load_and_transform():
 
     shipments.to_sql("shipments", engine, if_exists="append", index=False)
     print(f"Loaded {len(suppliers)} suppliers and {len(shipments)} shipments into scout_db.")
+
+    # marker file so DVC has a trackable output for this DB-writing stage
+    os.makedirs("data", exist_ok=True)
+    with open("data/.load_marker", "w") as f:
+        f.write(f"loaded {len(shipments)} shipments\n")
+
 
 if __name__ == "__main__":
     load_and_transform()
