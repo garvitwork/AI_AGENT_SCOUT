@@ -37,8 +37,13 @@ def predict(shipment_id: int):
         result = run_shipment(shipment_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    info = result.get("shipment_info", {})
     return {
         "shipment_id": shipment_id,
+        "origin": info.get("origin"),
+        "destination": info.get("destination"),
+        "supplier_name": info.get("supplier_name"),
+        "transport_mode": info.get("transport_mode"),
         "risk_probability": result["risk_probability"],
         "predicted_delay_days": result["predicted_delay_days"],
         "top_risk_factors": result["top_risk_factors"],
