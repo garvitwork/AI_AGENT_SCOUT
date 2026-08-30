@@ -19,7 +19,12 @@ DB_PORT = int(os.getenv("SCOUT_DB_PORT", 3306))
 DB_USER = os.getenv("SCOUT_DB_USER", "root")
 DB_PASSWORD = os.getenv("SCOUT_DB_PASSWORD", "garvit@123")
 DB_NAME = os.getenv("SCOUT_DB_NAME", "scout_db")
-DB_SSL_CA = os.getenv("SCOUT_DB_SSL_CA")  # path to Aiven's ca.pem, if using SSL
+
+_ssl_ca_raw = os.getenv("SCOUT_DB_SSL_CA")
+DB_SSL_CA = (
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), _ssl_ca_raw)
+    if _ssl_ca_raw else None
+)
 
 
 def get_pymysql_connection():
