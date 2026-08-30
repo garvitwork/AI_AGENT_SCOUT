@@ -1,0 +1,14 @@
+pymysql==1.1.1
+SQLAlchemy==2.0.35
+pandas==2.2.3
+requests==2.32.3
+python-dotenv==1.0.1
+dbConnect
+mlflow==2.16.2
+xgboost==2.1.1
+scikit-learn==1.5.2
+dagshub==0.3.35
+langgraph==0.2.39
+langchain-google-genai==2.0.4
+streamlit==1.39.0
+tqdm==4.66.5

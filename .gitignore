@@ -1,0 +1,6 @@
+scout_env/
+.env
+__pycache__/
+*.pyc
+mlruns/
+data/raw/*.csv
