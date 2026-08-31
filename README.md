@@ -41,18 +41,18 @@ Real + live data → Cloud MySQL (Aiven) → DVC-tracked feature/training pipeli
 
 ## Tech Stack
 
-| Layer | Tools |
-|---|---|
-| Data storage | MySQL (Aiven, cloud, SSL-enforced) |
-| Data ingestion | pandas, requests (OpenWeather, NewsAPI) |
-| ML | XGBoost, scikit-learn |
-| MLOps | MLflow, DVC, DagsHub (experiment tracking + model registry + pipeline DAG) |
-| Agent orchestration | LangGraph |
-| LLM reasoning | Google Gemini (`gemini-3.6-flash`) via `langchain-google-genai` |
-| Backend API | FastAPI, deployed on Render |
-| Frontend | Vanilla HTML/CSS/JS, hosted on GitHub Pages |
-| Ops dashboard | Streamlit |
-| Version control | Git, dual-pushed to GitHub + DagsHub |
+| Category | Tools | Why it's here |
+|---|---|---|
+| **Cloud Database** | MySQL (Aiven, cloud-hosted, SSL-enforced) | Production-grade relational storage — not local/SQLite — reachable from any deployment target, TLS-secured end to end |
+| **Data Ingestion** | pandas, requests (OpenWeather API, NewsAPI) | Blends a real historical dataset with live, continuously-refreshed risk signals |
+| **Machine Learning** | XGBoost, scikit-learn | Gradient-boosted classification + regression, hyperparameter-tuned via `RandomizedSearchCV` |
+| **MLOps** | MLflow, DVC, DagsHub | Full experiment tracking, model registry, and a versioned, reproducible pipeline DAG (`dvc repro`) |
+| **Agent Orchestration** | LangGraph | Stateful multi-agent workflow — Monitor → Risk → Recommend |
+| **LLM Reasoning** | Google Gemini (`gemini-3.6-flash`) via `langchain-google-genai` | Turns model outputs into explainable, human-readable recommendations |
+| **Backend API** | FastAPI, deployed on Render | Production REST API serving the agent pipeline over HTTPS |
+| **Frontend** | Vanilla HTML/CSS/JS, hosted on GitHub Pages | Custom-designed live dashboard, zero framework overhead |
+| **Ops Dashboard** | Streamlit | Internal batch-monitoring view |
+| **Version Control** | Git, dual-remote (GitHub + DagsHub) | Code and ML artifacts tracked and pushed together |
 
 ---
 
