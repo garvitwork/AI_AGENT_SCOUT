@@ -1,6 +1,11 @@
 # SCOUT — Supply Chain Disruption Early-Warning Agent
 
-An agentic AI system that monitors shipments, scores disruption risk and predicted delay using ML models tracked via MLflow/DagsHub, and generates plain-language, explainable recommendations using a multi-agent LangGraph pipeline powered by Gemini.
+An agentic AI system that monitors shipments, scores disruption risk and predicted delay using ML models tracked via MLflow/DagsHub, and generates plain-language, explainable recommendations using a multi-agent LangGraph pipeline powered by Gemini — deployed end-to-end as a live API and frontend.
+
+**Live demo:** [garvitwork.github.io/frontend_scout](https://garvitwork.github.io/frontend_scout/)
+**Backend repo:** [github.com/garvitwork/AI_AGENT_SCOUT](https://github.com/garvitwork/AI_AGENT_SCOUT)
+**API:** [ai-agent-scout.onrender.com](https://ai-agent-scout.onrender.com) — interactive docs at `/docs`
+**Experiment tracking:** DagsHub (MLflow tracking + model registry + DVC pipeline)
 
 ---
 
@@ -8,7 +13,7 @@ An agentic AI system that monitors shipments, scores disruption risk and predict
 
 Enterprise supply-chain risk platforms (Blue Yonder, Kinaxis, o9) are built for large enterprises with six-figure budgets. Mid-market manufacturers and distributors — the segment that arguably needs early warning the most — are left relying on spreadsheets, gut feel, and reactive firefighting when shipments get delayed. There is no accessible, explainable, end-to-end system that combines live risk signals, predictive ML, and autonomous reasoning to flag at-risk shipments *before* they're late.
 
-**SCOUT** addresses this gap: given a shipment, it estimates the probability of disruption, forecasts the expected delay, identifies the top contributing factors, and produces a human-readable recommendation — autonomously, with full audit logging.
+**SCOUT** addresses this gap: given a shipment, it estimates the probability of disruption, forecasts the expected delay, identifies the top contributing factors, and produces a human-readable recommendation — autonomously, with full audit logging, served through a live API and dashboard.
 
 ---
 
@@ -16,17 +21,21 @@ Enterprise supply-chain risk platforms (Blue Yonder, Kinaxis, o9) are built for 
 
 **Pipeline:**
 ```
-Real + live data → MySQL → Feature Engineering → ML (MLflow/DagsHub) → Agentic reasoning (LangGraph + Gemini) → Dashboard
+Real + live data → Cloud MySQL (Aiven) → DVC-tracked feature/training pipeline
+→ ML (MLflow/DagsHub registry) → Agentic reasoning (LangGraph + Gemini)
+→ FastAPI (Render) → Frontend (GitHub Pages)
 ```
 
-1. **Data layer** — Real-world DataCo Smart Supply Chain dataset (180K+ shipment records) loaded into MySQL as the historical backbone, plus a live-fetch pipeline (OpenWeather + NewsAPI) that continuously ingests current weather and news-based risk events per region.
+1. **Data layer** — Real-world DataCo Smart Supply Chain dataset (180K+ shipment records) loaded into a cloud MySQL instance (Aiven, SSL-enforced), plus a live-fetch pipeline (OpenWeather + NewsAPI) that continuously ingests current weather and news-based risk events per region.
 2. **Feature engineering** — leak-free, time-aware features: scheduled transit days, order-date seasonality, a trailing-window count of nearby risk events, and each supplier's historical delay rate/magnitude computed with an expanding window (so no shipment ever "sees" its own or future outcomes).
 3. **ML layer** — two XGBoost models: a disruption-risk classifier and a delay-duration regressor, both hyperparameter-tuned via `RandomizedSearchCV` and tracked in MLflow on DagsHub (params, metrics, confusion matrix, feature importance, model registry).
-4. **Agentic layer** — a 3-agent LangGraph pipeline:
+4. **Pipeline orchestration (DVC)** — the full path from raw data to trained model is defined as a `dvc.yaml` DAG (ingest → build features → train risk classifier → train delay forecaster), with hyperparameters centralized in `params.yaml` and metrics/plots versioned as DVC artifacts, visible on DagsHub's Data Pipeline and Experiments tabs.
+5. **Agentic layer** — a 3-agent LangGraph pipeline:
    - **MonitorAgent** — pulls shipment + supplier context from MySQL.
-   - **RiskAgent** — loads the latest registered models from the MLflow registry, scores the shipment, and extracts top contributing factors.
+   - **RiskAgent** — loads the latest registered models from the MLflow registry, scores the shipment using a **lightweight, single-shipment SQL feature build** (not the full training dataset — critical for running in a memory-constrained cloud environment), and extracts top contributing factors.
    - **RecoAgent** — Gemini (`gemini-3.6-flash`) turns the scores into a concise, explainable, action-oriented recommendation.
-5. **Batch + dashboard** — a batch runner scores many shipments at once (rate-limited for the free Gemini tier), and a Streamlit dashboard visualizes flagged shipments, risk distribution, and recommendations.
+6. **Serving** — a FastAPI backend (`/predict/{shipment_id}`, `/predictions`, `/health`) deployed on Render, plus a batch runner and a Streamlit ops dashboard for internal use.
+7. **Frontend** — a standalone HTML/CSS/JS "control tower" dashboard (dark radar theme, boarding-pass-style result ticket, live departure board) hosted on GitHub Pages, calling the Render API directly.
 
 ---
 
@@ -34,13 +43,16 @@ Real + live data → MySQL → Feature Engineering → ML (MLflow/DagsHub) → A
 
 | Layer | Tools |
 |---|---|
-| Data storage | MySQL |
+| Data storage | MySQL (Aiven, cloud, SSL-enforced) |
 | Data ingestion | pandas, requests (OpenWeather, NewsAPI) |
 | ML | XGBoost, scikit-learn |
-| MLOps | MLflow, DagsHub (experiment tracking + model registry) |
+| MLOps | MLflow, DVC, DagsHub (experiment tracking + model registry + pipeline DAG) |
 | Agent orchestration | LangGraph |
 | LLM reasoning | Google Gemini (`gemini-3.6-flash`) via `langchain-google-genai` |
-| Dashboard | Streamlit |
+| Backend API | FastAPI, deployed on Render |
+| Frontend | Vanilla HTML/CSS/JS, hosted on GitHub Pages |
+| Ops dashboard | Streamlit |
+| Version control | Git, dual-pushed to GitHub + DagsHub |
 
 ---
 
@@ -48,36 +60,46 @@ Real + live data → MySQL → Feature Engineering → ML (MLflow/DagsHub) → A
 
 ```
 AI_AGENT_SCOUT/
-├── db_connect.py              # MySQL connection (pymysql + SQLAlchemy)
-├── init_db.py                 # creates scout_db + tables from schema.sql
+├── db_connect.py              # MySQL connection (pymysql + SQLAlchemy, SSL-aware)
+├── init_db.py                 # creates tables from schema.sql
 ├── schema.sql                 # suppliers, shipments, risk_events, model_predictions
 ├── load_static_data.py        # ingests DataCo dataset into MySQL
 ├── fetch_live_signals.py      # live weather/news risk-event ingestion
+├── ca.pem                     # Aiven CA certificate (public, safe to commit)
+├── dvc.yaml                   # DVC pipeline DAG
+├── params.yaml                # centralized hyperparameters, tracked by DVC
 ├── requirements.txt
-├── .env                       # DB creds, API keys (not committed)
+├── .python-version             # pins Python 3.10/3.11 for cloud builds
+├── .env                        # DB creds, API keys (not committed)
 │
 ├── data/raw/                  # DataCoSupplyChainDataset.csv + description
 │
 ├── ml/
-│   ├── mlflow_config.py       # MLflow tracking pointed at DagsHub
-│   ├── features.py            # leak-free feature engineering
+│   ├── mlflow_config.py        # MLflow tracking pointed at DagsHub
+│   ├── features.py             # leak-free feature engineering (training-time, full dataset)
+│   ├── generate_category_mappings.py  # lightweight SQL-based category encoding for inference
 │   ├── train_risk_classifier.py
 │   ├── train_delay_forecast.py
-│   ├── confusion_matrix.png
-│   └── delay_feature_importance.png
+│   └── outputs/ (confusion_matrix.png, delay_feature_importance.png, *_metrics.json, category_mappings.json)
 │
 ├── agents/
-│   ├── state.py                # shared LangGraph state schema
-│   ├── model_loader.py         # loads latest MLflow-registered models
+│   ├── state.py                 # shared LangGraph state schema
+│   ├── model_loader.py          # loads latest MLflow-registered models
 │   ├── monitor_agent.py
+│   ├── inference_features.py    # lightweight single-shipment feature build (production-safe)
 │   ├── risk_agent.py
 │   ├── reco_agent.py
-│   ├── graph.py                # LangGraph wiring
-│   ├── pipeline.py             # shared run + log logic
-│   ├── main.py                 # single-shipment CLI runner
-│   └── batch_run.py            # multi-shipment batch runner
+│   ├── graph.py                 # LangGraph wiring
+│   ├── pipeline.py              # shared run + log logic
+│   ├── main.py                  # single-shipment CLI runner
+│   ├── batch_run.py             # multi-shipment batch runner
+│   └── api.py                   # FastAPI app (deployed on Render)
 │
-└── batch_run/app.py           # Streamlit dashboard
+├── dashboard/app.py             # Streamlit ops dashboard
+└── frontend_scout/              # standalone frontend (GitHub Pages)
+    ├── index.html
+    ├── style.css
+    └── script.js
 ```
 
 ---
@@ -87,54 +109,74 @@ AI_AGENT_SCOUT/
 ```bash
 pip install -r requirements.txt
 
-# 1. Create DB + tables
+# 1. Provision a cloud MySQL instance (Aiven free tier) and set .env:
+#    SCOUT_DB_HOST, SCOUT_DB_PORT, SCOUT_DB_USER, SCOUT_DB_PASSWORD,
+#    SCOUT_DB_NAME, SCOUT_DB_SSL_CA=ca.pem
+
+# 2. Create DB + tables, load data
 python init_db.py
-
-# 2. Load historical dataset
 python load_static_data.py
-
-# 3. Fetch live risk signals (run on a schedule in production)
 python fetch_live_signals.py
 
-# 4. Train models (logged to MLflow/DagsHub)
+# 3. Train models + generate inference-time category mappings
 cd ml
 python train_risk_classifier.py
 python train_delay_forecast.py
-
-# 5. Run the agent pipeline
-cd ../agents
-python main.py <shipment_id>          # single shipment
-python batch_run.py 30                # batch of 30 shipments
-
-# 6. View results
+python generate_category_mappings.py
 cd ..
-streamlit run batch_run/app.py
+
+# 4. Or run the whole pipeline via DVC
+dvc repro
+dvc push
+
+# 5. Run the agent pipeline locally
+cd agents
+python main.py <shipment_id>
+python batch_run.py 30
+
+# 6. Run the API locally
+uvicorn api:app --reload
+
+# 7. Serve the frontend locally
+cd ../frontend_scout
+python -m http.server 5500
 ```
+
+**Production deployment:**
+- **Backend**: Render web service, start command `cd agents && uvicorn api:app --host 0.0.0.0 --port $PORT`, env vars mirrored from `.env`, `ca.pem` committed to the repo.
+- **Frontend**: static GitHub Pages deploy of `frontend_scout/`, pointing at the Render API URL.
+- **Database**: Aiven MySQL (SSL-required), reachable from both local dev and Render.
 
 ---
 
 ## Challenges Faced & How They Were Solved
 
 **1. Silent data loss from a broken aggregation (180K → 187 rows).**
-An early `groupby().transform()` chain in the ingestion script (`.transform("mean")` followed by `.drop_duplicates().reindex()`) misaligned indices and silently produced `NaN` for nearly every supplier's `lead_time_days`. Since the feature pipeline drops rows with missing values, 99.9% of the dataset was invisible to training without any error being raised. Diagnosed by explicitly printing row counts after feature-building, then fixed by replacing the transform chain with a clean `groupby().mean()` mapped back onto suppliers by region.
+An early `groupby().transform()` chain in the ingestion script misaligned indices and silently produced `NaN` for nearly every supplier's `lead_time_days`, which the feature pipeline then dropped. Fixed by replacing the transform chain with a clean `groupby().mean()` mapped back onto suppliers by region — and by making row-count sanity checks a standard step after every transform.
 
 **2. Unlinked foreign keys (`shipments.supplier_id` always NULL).**
-The original ingestion script inserted `shipments` without ever assigning `supplier_id`, so every merge against `suppliers` failed with a dtype mismatch (`object` vs `int64`) — masking the real issue. Fixed by reading back the auto-generated `supplier_id`s after inserting suppliers and mapping them onto shipments via a natural key (region + category) before insert.
+The original ingestion script never assigned `supplier_id` on insert. Fixed by reading back auto-generated `supplier_id`s after inserting suppliers and mapping them onto shipments via a natural key (region + category) before insert.
 
 **3. MySQL password containing `@` breaking connection strings.**
-A raw password like `garvit@123` is safe as a `pymysql.connect()` keyword argument but breaks a SQLAlchemy URI string (the `@` gets misread as the host separator). Solved by using `urllib.parse.quote_plus()` to percent-encode the password specifically for URI-based connections, while keeping the raw kwarg for direct `pymysql` connections.
+Safe as a `pymysql.connect()` kwarg, but breaks a SQLAlchemy URI. Solved with `urllib.parse.quote_plus()` for URI-based connections only.
 
-**4. Live-fetch script failing silently.**
-`fetch_live_signals.py` initially never called `load_dotenv()`, so API keys resolved to empty strings and every request failed with a 401 — but the script only printed "No events to insert" with no indication why. Fixed by loading `.env` explicitly and surfacing the actual HTTP status/error text instead of failing quietly.
+**4. Hyperparameter tuning plateau on the delay regressor.**
+A 25-candidate randomized search barely moved R² (0.278 → 0.278). Diagnosed as a genuine signal ceiling — `scheduled_days` was collinear with `transport_mode`, and the target carries irreducible noise consistent with public benchmarks on this dataset — rather than continuing to tune blindly.
 
-**5. Hyperparameter tuning plateau on the delay regressor.**
-After adding new features and running a 25-candidate randomized search, R² barely moved (0.278 → 0.278). Rather than continuing to tune blindly, the plateau was diagnosed as a genuine signal ceiling: the added `scheduled_days` feature was almost fully collinear with `transport_mode` (already in the model), and the target itself carries irreducible noise in this dataset — consistent with public benchmarks on the same data. Recognizing "no more signal to extract" (vs. "wrong hyperparameters") avoided wasted tuning cycles.
+**5. Rapidly deprecating Gemini model identifiers.**
+`gemini-1.5-flash` → `gemini-2.5-flash` → `gemini-3.6-flash`, each retired mid-build. Solved by treating the model name as a single config value and reading the API's own error message for the current replacement.
 
-**6. Rapidly deprecating Gemini model identifiers.**
-`gemini-1.5-flash` → `gemini-2.5-flash` → `gemini-3.6-flash`, each retired within the build window. Solved by treating the model name as a single-point config value and reading the API's own error message (which named the recommended replacement) rather than guessing.
+**6. Migrating to cloud MySQL broke relative file paths.**
+Moving from local MySQL to Aiven required an SSL CA certificate, and its relative path (`ca.pem`) resolved differently depending on which directory a script was *run from* — breaking on Render, where the working directory (`agents/`) didn't match the certificate's location. Fixed by resolving the path relative to `db_connect.py`'s own file location (`os.path.dirname(os.path.abspath(__file__))`) instead of the process's current working directory, making it deployment-environment-agnostic.
 
-**7. Nested/misaligned project paths (Windows).**
-Terminal `cd` mistakes (running from a duplicated nested folder, or from the wrong subdirectory) caused repeated `ModuleNotFoundError` and `FileNotFoundError`. Solved by standardizing on relative imports anchored to `os.path.dirname(__file__)` and always running scripts from their intended working directory.
+**7. Production out-of-memory crash from reusing the training-time feature pipeline at inference.**
+The API initially called the same `build_features()` used for training — reloading and reprocessing the **entire 180K-row dataset** just to score a single shipment. Combined with MLflow, LangChain, and pandas already loaded, this exceeded Render's 512MB free-tier limit and crashed the instance. Fixed by writing a separate, lightweight inference-time feature builder (`inference_features.py`) that computes a single shipment's features via targeted SQL `COUNT`/`AVG` queries instead of a full-table load — and by precomputing the categorical encoding scheme once via `generate_category_mappings.py` (lightweight `SELECT DISTINCT` queries) so inference never needs the full dataset in memory at all. This is a broader lesson: **training-time and inference-time feature computation are different problems and should not share the same code path** once memory or latency constraints apply.
+
+**8. An overly broad `except ValueError` silently mislabeled real errors as "not found."**
+After the memory fix, a genuine `ValueError` from XGBoost (a dtype mismatch — MySQL's `AVG()` returns `Decimal`, which pandas stores as `object`, not `float`) was being caught by the same handler used for "shipment not found," returning a misleading 404 instead of the real error. Fixed in two places: a dedicated `ShipmentNotFoundError` exception so only genuine not-found cases return 404, and explicit `float()` casting on all SQL aggregate results before feeding them to the model. The frontend was also hardcoding a generic "not found" message for any 404 response, which masked the real API error text during debugging — fixed by having the frontend display the API's actual `detail` field.
+
+**9. Dependency conflicts and Python version drift breaking cloud builds.**
+Render defaulted to Python 3.14 (no prebuilt `pyarrow` wheel yet, forcing a failing source build), and an unused `dagshub` package conflicted with `langgraph`'s `httpx` requirement. Fixed by pinning Python via `.python-version`, and by removing `dagshub` entirely since the code only ever talks to DagsHub through MLflow's own tracking URI + auth env vars — the package was dead weight.
 
 ---
 
@@ -148,17 +190,18 @@ Terminal `cd` mistakes (running from a duplicated nested folder, or from the wro
 | Delay forecaster | MAE | 0.98 days |
 | Delay forecaster | R² | 0.28 |
 
-Both models are versioned in the MLflow model registry on DagsHub (4 iterations each), with confusion matrix and feature-importance artifacts logged per run.
+Both models are versioned in the MLflow model registry on DagsHub, with confusion matrix and feature-importance artifacts logged per run, and the full training pipeline reproducible via `dvc repro`.
 
 ---
 
 ## Conclusion & Key Takeaways
 
-- **Debugging discipline mattered more than model choice.** The two biggest performance jumps (187 → 180,519 rows; 57.9% → 70.3% accuracy) came from fixing silent data-pipeline bugs, not from tuning or trying new algorithms. A correct-looking script can still destroy most of a dataset without raising an error — row-count sanity checks after every transform are non-negotiable.
-- **Leak-free feature engineering is a discipline, not an afterthought.** Every "supplier history" feature was deliberately computed as an expanding window shifted by one, specifically to prevent a shipment's own outcome from leaking into its own prediction — a subtlety that's easy to get wrong silently.
-- **Knowing when to stop tuning is itself a skill.** Recognizing a genuine data ceiling (via a flat hyperparameter search) prevented burning further cycles chasing marginal gains that weren't there, and reframed the result as a legitimate, defensible v1 rather than an unfinished one.
-- **Explainability was built in, not bolted on.** Every RiskAgent output carries its top contributing features, and every recommendation is grounded in those numbers before Gemini writes a single sentence — critical for a system meant to be trusted by a supply chain manager.
-- **End-to-end ownership**: this project spans data engineering, MLOps, ML modeling, and agentic orchestration — the full stack a modern ML/AI engineering role expects, on a real, underserved business problem rather than a toy dataset.
+- **Debugging discipline mattered more than model choice.** The two biggest performance jumps (187 → 180,519 rows; 57.9% → 70.3% accuracy) came from fixing silent data-pipeline bugs, not from tuning or trying new algorithms.
+- **Leak-free feature engineering is a discipline, not an afterthought.** Every "supplier history" feature was deliberately computed as an expanding window shifted by one, to prevent a shipment's own outcome from leaking into its own prediction.
+- **Knowing when to stop tuning is itself a skill.** Recognizing a genuine data ceiling prevented burning further cycles chasing marginal gains that weren't there.
+- **Training-time and production-time constraints are genuinely different problems.** A feature pipeline built for offline training (load everything, compute globally) can silently sink a production service under real-world memory limits — the fix wasn't "use a bigger server," it was recognizing that inference only ever needs *one row's worth* of context, computable with targeted queries instead of a full-dataset load.
+- **Error handling shapes debuggability as much as correctness.** An overly broad exception handler and a frontend that hardcoded its own error message both actively hid the real failure for multiple debugging cycles — narrowing exception types and always surfacing the backend's real error text turned out to be as important as the underlying fix itself.
+- **End-to-end ownership**: this project spans data engineering, cloud database migration, MLOps, ML modeling, agentic orchestration, backend deployment, and frontend delivery — the full stack a modern ML/AI engineering role expects, on a real, underserved business problem, deployed and publicly reachable rather than left as a notebook.
 
 ---
 
@@ -166,6 +209,7 @@ Both models are versioned in the MLflow model registry on DagsHub (4 iterations 
 
 - Migrate `RandomizedSearchCV` to Bayesian optimization (Optuna) for more efficient search.
 - Add SHAP-based explanations to replace the current feature-importance proxy.
-- Wrap the pipeline in FastAPI for production-style serving.
 - Add automated retraining triggers (drift monitoring) as new live risk events accumulate.
 - Extend live-fetch to port-congestion and customs-delay data sources.
+- Add authentication and rate-limiting to the public API before wider release.
+- Restrict CORS to the deployed frontend origin instead of `*`.
