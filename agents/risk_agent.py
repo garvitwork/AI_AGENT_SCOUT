@@ -7,6 +7,7 @@ from model_loader import load_models
 
 _risk_model = None
 _delay_model = None
+_features_df = None
 _feature_cols = None
 
 
@@ -17,13 +18,19 @@ def _get_models():
     return _risk_model, _delay_model
 
 
+def _get_features():
+    global _features_df, _feature_cols
+    if _features_df is None:
+        _features_df, _feature_cols = build_features()
+    return _features_df, _feature_cols
+
+
 def risk_agent(state: ScoutState) -> ScoutState:
     """Scores the shipment's disruption risk and predicted delay using
     the latest MLflow-registered models, plus a simple feature-importance
     based explanation (top contributing factors)."""
     risk_model, delay_model = _get_models()
-
-    df, feature_cols = build_features()
+    df, feature_cols = _get_features()
     row = df[df["shipment_id"] == state["shipment_id"]]
     if row.empty:
         raise ValueError(f"shipment_id {state['shipment_id']} not found in feature set")
