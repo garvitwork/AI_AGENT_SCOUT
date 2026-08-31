@@ -7,6 +7,10 @@ import pandas as pd
 from sqlalchemy import text
 
 
+class ShipmentNotFoundError(ValueError):
+    pass
+
+
 def monitor_agent(state: ScoutState) -> ScoutState:
     """Fetches shipment + supplier context for the shipment under review."""
     engine = get_sqlalchemy_engine()
@@ -22,7 +26,7 @@ def monitor_agent(state: ScoutState) -> ScoutState:
     df = pd.read_sql(query, engine, params={"shipment_id": shipment_id})
     print(f"[DEBUG] monitor_agent: shipment_id={shipment_id!r} (type={type(shipment_id)}), rows found={len(df)}")
     if df.empty:
-        raise ValueError(f"No shipment found with id {shipment_id}")
+        raise ShipmentNotFoundError(f"No shipment found with id {shipment_id}")
 
     state["shipment_info"] = df.iloc[0].to_dict()
     return state

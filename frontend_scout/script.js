@@ -41,12 +41,16 @@ async function scanShipment(shipmentId) {
 
   try {
     const res = await fetch(`${API_BASE}/predict/${shipmentId}`, { method: "POST" });
-    if (res.status === 404) {
-      hint.textContent = `No shipment found with ID ${shipmentId}.`;
+    if (!res.ok) {
+      let detail = `Server returned ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson.detail) detail = errJson.detail;
+      } catch {}
+      hint.textContent = detail;
       resultZone.hidden = true;
       return;
     }
-    if (!res.ok) throw new Error(`Server returned ${res.status}`);
 
     const data = await res.json();
     renderTicket(data);

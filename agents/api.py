@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
 from pipeline import run_shipment
+from monitor_agent import ShipmentNotFoundError
 
 app = FastAPI(title="SCOUT API", version="1.0")
 
@@ -35,7 +36,7 @@ def health():
 def predict(shipment_id: int):
     try:
         result = run_shipment(shipment_id)
-    except ValueError as e:
+    except ShipmentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
