@@ -20,6 +20,7 @@ def monitor_agent(state: ScoutState) -> ScoutState:
         WHERE s.shipment_id = :shipment_id
     """)
     df = pd.read_sql(query, engine, params={"shipment_id": shipment_id})
+    print(f"[DEBUG] monitor_agent: shipment_id={shipment_id!r} (type={type(shipment_id)}), rows found={len(df)}")
     if df.empty:
         raise ValueError(f"No shipment found with id {shipment_id}")
 
