@@ -70,8 +70,8 @@ def build_single_shipment_features(shipment_info: dict) -> pd.DataFrame:
     with engine.connect() as conn:
         row = conn.execute(q_hist, {"supplier_id": supplier_id, "order_date": order_date}).mappings().first()
 
-    supplier_historical_delay_rate = row["delay_rate"] if row and row["delay_rate"] is not None else 0.573  # global fallback
-    supplier_historical_avg_delay = row["avg_delay"] if row and row["avg_delay"] is not None else 0.0
+    supplier_historical_delay_rate = float(row["delay_rate"]) if row and row["delay_rate"] is not None else 0.573
+    supplier_historical_avg_delay = float(row["avg_delay"]) if row and row["avg_delay"] is not None else 0.0
 
     features = {
         "quantity": shipment_info["quantity"],
@@ -90,4 +90,5 @@ def build_single_shipment_features(shipment_info: dict) -> pd.DataFrame:
         "category": _encode("category", shipment_info["category"]),
     }
 
-    return pd.DataFrame([features])[FEATURE_COLS]
+    result_df = pd.DataFrame([features])[FEATURE_COLS]
+    return result_df.astype(float)
