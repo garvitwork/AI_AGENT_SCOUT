@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
 from pipeline import run_shipment
+import risk_agent
 
 app = FastAPI(title="SCOUT API", version="1.0")
 
@@ -24,6 +25,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def preload_models():
+    """Load MLflow models once at startup so /predict requests are fast
+    and don't risk hitting Render's request timeout on a cold first call."""
+    risk_agent._get_models()
 
 
 @app.get("/health")
